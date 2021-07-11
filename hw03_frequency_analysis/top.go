@@ -25,8 +25,7 @@ func (w wordsList) Swap(i, j int) {
 
 func (w wordsList) Less(i, j int) bool {
 	if w[i].counter == w[j].counter {
-		s := sort.StringSlice{w[i].word, w[j].word}
-		return s.Less(0, 1)
+		return w[i].word < w[j].word // reverse sorting
 	}
 	return w[i].counter > w[j].counter // reverse sorting
 }
@@ -53,11 +52,6 @@ func Top10(s string) []string {
 	separatedStrings := strings.Split(s, ` `)
 
 	for _, word := range separatedStrings {
-		_, found := wordsCount[word]
-		if !found {
-			wordsCount[word] = 1
-			continue
-		}
 		wordsCount[word]++
 	}
 
