@@ -3,10 +3,11 @@ package main
 import (
 	"fmt"
 	"io"
-	"os"
+
+	"github.com/spf13/afero"
 )
 
-func Copy(fromPath, toPath string, limit, offset, chunkSize int64) (finError error) {
+func Copy(fs afero.Fs, fromPath, toPath string, limit, offset, chunkSize int64) (finError error) {
 	if limit < 0 {
 		limit = 0
 	}
@@ -15,7 +16,7 @@ func Copy(fromPath, toPath string, limit, offset, chunkSize int64) (finError err
 		offset = 0
 	}
 
-	src, err := os.Open(fromPath)
+	src, err := fs.Open(fromPath)
 	defer func() {
 		err := src.Close()
 		if err != nil {
@@ -39,7 +40,7 @@ func Copy(fromPath, toPath string, limit, offset, chunkSize int64) (finError err
 		limit = fileSize
 	}
 
-	dst, err := os.Create(toPath)
+	dst, err := fs.Create(toPath)
 	defer func() {
 		err := dst.Close()
 		if err != nil {
@@ -65,12 +66,15 @@ func Copy(fromPath, toPath string, limit, offset, chunkSize int64) (finError err
 			isLastChank = true
 		}
 
-		fmt.Printf("!!!! %#v, %d, %d, %d\n", buf, read, totalRead, limit)
+		fmt.Printf("!!!! %#v, %#v, %d, %d, %d\n", buf, buf[:read], read, totalRead, limit)
 		if limit > 0 && totalRead+int64(read) > limit {
-			_, err = dst.WriteAt(buf[:(limit-totalRead)], offset)
+			fmt.Println("foo")
+			_, err = dst.WriteAt(buf[:(limit-totalRead)], offset-initialOffset)
 			isLastChank = true
 		} else {
-			_, err = dst.WriteAt(buf[:read], offset)
+			fmt.Println("bar")
+			newbuf := buf[:read]
+			_, err = dst.WriteAt(newbuf, offset-initialOffset)
 		}
 
 		if err != nil {

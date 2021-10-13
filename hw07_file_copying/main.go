@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+
+	"github.com/spf13/afero"
 )
 
 var (
@@ -20,8 +22,10 @@ func init() {
 
 func main() {
 	flag.Parse()
+	fs := afero.NewOsFs()
+
 	fmt.Printf("Copying file %s to %s\n", from, to)
-	err := Copy(from, to, limit, offset, chunkSize)
+	err := Copy(fs, from, to, limit, offset, chunkSize)
 	if err != nil {
 		fmt.Printf("Failed to copy files: %s\n", err)
 		return
