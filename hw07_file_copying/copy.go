@@ -18,9 +18,11 @@ func Copy(fs afero.Fs, fromPath, toPath string, limit, offset, chunkSize int64) 
 
 	src, err := fs.Open(fromPath)
 	defer func() {
-		err := src.Close()
-		if err != nil {
-			finError = fmt.Errorf("can`t close file %s: %s", fromPath, err)
+		if src != nil {
+			err := src.Close()
+			if err != nil {
+				finError = fmt.Errorf("can`t close file %s: %s", fromPath, err)
+			}
 		}
 	}()
 	if err != nil {
@@ -42,9 +44,11 @@ func Copy(fs afero.Fs, fromPath, toPath string, limit, offset, chunkSize int64) 
 
 	dst, err := fs.Create(toPath)
 	defer func() {
-		err := dst.Close()
-		if err != nil {
-			finError = fmt.Errorf("can`t close file %s: %s", fromPath, err)
+		if dst != nil {
+			err := dst.Close()
+			if err != nil {
+				finError = fmt.Errorf("can`t close file %s: %s", fromPath, err)
+			}
 		}
 	}()
 	if err != nil {
@@ -59,6 +63,7 @@ func Copy(fs afero.Fs, fromPath, toPath string, limit, offset, chunkSize int64) 
 
 	for offset < fileSize {
 		read, err := src.ReadAt(buf, offset)
+		fmt.Println("reading file error", read, err)
 		if err != io.EOF && err != nil {
 			return fmt.Errorf("can`t read from file %s: %s", fromPath, err)
 		}
@@ -66,15 +71,16 @@ func Copy(fs afero.Fs, fromPath, toPath string, limit, offset, chunkSize int64) 
 			isLastChank = true
 		}
 
-		fmt.Printf("!!!! %#v, %#v, %d, %d, %d\n", buf, buf[:read], read, totalRead, limit)
+		//fmt.Printf("!!!! %#v, %#v, %d, %d, %d\n", buf, buf[:read], read, totalRead, limit)
 		if limit > 0 && totalRead+int64(read) > limit {
-			fmt.Println("foo")
+			//fmt.Println("foo")
 			_, err = dst.WriteAt(buf[:(limit-totalRead)], offset-initialOffset)
+			fmt.Println("writing error", err)
 			isLastChank = true
 		} else {
-			fmt.Println("bar")
-			newbuf := buf[:read]
-			_, err = dst.WriteAt(newbuf, offset-initialOffset)
+			//fmt.Println("bar")
+			_, err = dst.WriteAt(buf[:read], offset-initialOffset)
+			fmt.Println("writing error", err)
 		}
 
 		if err != nil {
