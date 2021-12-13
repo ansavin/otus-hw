@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTelnetClient(t *testing.T) {
+func TestTelnetClientPositive(t *testing.T) {
 	t.Run("basic", func(t *testing.T) {
 		l, err := net.Listen("tcp", "127.0.0.1:")
 		require.NoError(t, err)
@@ -58,6 +58,112 @@ func TestTelnetClient(t *testing.T) {
 			n, err = conn.Write([]byte("world\n"))
 			require.NoError(t, err)
 			require.NotEqual(t, 0, n)
+		}()
+
+		wg.Wait()
+	})
+}
+
+func TestTelnetClientNegative(t *testing.T) {
+	t.Run("server closed connection", func(t *testing.T) {
+		l, err := net.Listen("tcp", "127.0.0.1:")
+		require.NoError(t, err)
+		defer func() { require.NoError(t, l.Close()) }()
+
+		var wg, clientWg sync.WaitGroup
+		wg.Add(2)
+		clientWg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			in := &bytes.Buffer{}
+			out := &bytes.Buffer{}
+
+			timeout, err := time.ParseDuration("10s")
+			require.NoError(t, err)
+
+			client := NewTelnetClient(l.Addr().String(), timeout, ioutil.NopCloser(in), out)
+			require.NoError(t, client.Connect())
+			defer func() { require.NoError(t, client.Close()) }()
+
+			in.WriteString("hello\n")
+			err = client.Send()
+			require.NoError(t, err)
+
+			clientWg.Wait()
+
+			err = client.Receive()
+			require.Error(t, err)
+			require.Equal(t, errServerClosed, err)
+		}()
+
+		go func() {
+			defer func() {
+				wg.Done()
+				clientWg.Done()
+			}()
+
+			conn, err := l.Accept()
+			require.NoError(t, err)
+			require.NotNil(t, conn)
+			defer func() { require.NoError(t, conn.Close()) }()
+		}()
+
+		wg.Wait()
+	})
+
+	t.Run("client closed connection", func(t *testing.T) {
+		l, err := net.Listen("tcp", "127.0.0.1:")
+		require.NoError(t, err)
+		defer func() { require.NoError(t, l.Close()) }()
+
+		var wg, clientWg sync.WaitGroup
+		wg.Add(2)
+		clientWg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			in := &bytes.Buffer{}
+			out := &bytes.Buffer{}
+
+			timeout, err := time.ParseDuration("10s")
+			require.NoError(t, err)
+
+			client := NewTelnetClient(l.Addr().String(), timeout, ioutil.NopCloser(in), out)
+			require.NoError(t, client.Connect())
+			defer func() { require.NoError(t, client.Close()) }()
+
+			in.WriteString("^D")
+			err = client.Send()
+			require.NoError(t, err)
+
+			clientWg.Wait()
+
+			err = client.Send()
+			require.Error(t, err)
+			require.Equal(t, errClientClosed, err)
+
+			err = client.Receive()
+			require.Error(t, err)
+			require.Equal(t, errServerClosed, err)
+		}()
+
+		go func() {
+			defer func() {
+				wg.Done()
+				clientWg.Done()
+			}()
+
+			conn, err := l.Accept()
+			require.NoError(t, err)
+			require.NotNil(t, conn)
+			defer func() { require.NoError(t, conn.Close()) }()
+
+			request := make([]byte, 1024)
+			_, err = conn.Read(request)
+			require.NoError(t, err)
 		}()
 
 		wg.Wait()
